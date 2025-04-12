@@ -48,11 +48,11 @@ El análisis permitió evaluar la capacidad predictiva del modelo para distintos
 ## 🧠 Autor
 
 Felipe Muñoz  
-📧 Contacto: *(si quieres, puedes poner un correo o tu LinkedIn)*
+📧 Contacto: *(www.linkedin.com/in/felipe-m-92123990)*
 
 ---
 
 ## 📌 Licencia
 
-Este proyecto está bajo una licencia MIT / CC BY-SA (o la que prefieras).  
+Este proyecto está bajo una licencia MIT / CC BY-SA.  
 Incluye datos públicos de libre acceso, procesados con fines educativos y analíticos.
