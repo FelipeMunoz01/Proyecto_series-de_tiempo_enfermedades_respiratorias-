@@ -1,4 +1,4 @@
-# 📊 Predicción de Atenciones de Urgencia por Causas Respiratorias (2014–2025)
+# 📊 Predicción de atenciones de urgencia por causas respiratorias (2014–2025)
 
 Este proyecto analiza datos históricos de atenciones de urgencia por causas respiratorias desde el año 2014 hasta 2025, utilizando modelos de series temporales y redes neuronales para predecir la evolución de los casos en semanas epidemiológicas. Los datos provienen del Sistema de Atención Diaria de Urgencias (SADU), disponibles en [datos.gob.cl](https://datos.gob.cl).
 
