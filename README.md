@@ -51,7 +51,9 @@ El análisis permitió evaluar la capacidad predictiva del modelo para distintos
 ---
 
 ## 📁 Estructura del proyecto
+
 ├── series_de_tiempo_enfermerdades_respiratorias.R  # Script principal
+
 └── README.md
 
 ---
