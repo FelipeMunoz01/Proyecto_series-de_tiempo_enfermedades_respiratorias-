@@ -7,6 +7,10 @@ library(forecast)
 library(tseries)
 library(gganimate)
 
+# Semilla fija: nnetar inicializa los pesos de la red neuronal al azar,
+# por lo que sin semilla los resultados cambian en cada ejecución.
+set.seed(123)
+
 # 1. Cargar datos
 data <- read_parquet("https://datos.gob.cl/dataset/606ef5bb-11d1-475b-b69f-b980da5757f4/resource/ae6c9887-106d-4e98-8875-40bf2b836041/download/at_urg_respiratorio_semanal.parquet")
 data <- janitor::clean_names(data)
@@ -24,7 +28,7 @@ data <- data |>
 
 # 3. Filtrar datos
 casos_respiratorios <- data |> 
-  filter(tipo_establecimiento == "Hospital", 
+  filter(trimws(tipo_establecimiento) == "Hospital",
          causa %in% c("Neumonía (J12-J18)", "Influenza (J09-J11)")) |> 
   group_by(anio, semana_estadistica, causa) |> 
   summarise(total_casos = sum(num_total), .groups = "drop") |> 
@@ -42,21 +46,50 @@ crear_ts <- function(df, causa) {
 ts_neumonia <- crear_ts(casos_respiratorios, "Neumonía (J12-J18)")
 ts_influenza <- crear_ts(casos_respiratorios, "Influenza (J09-J11)")
 
-# 5. Modelado con Redes Neuronales
+# 5. Validación out-of-sample (backtesting)
+# Se reserva el último año (52 semanas) como conjunto de prueba: el modelo se
+# entrena solo con los datos anteriores a ese año y se compara la predicción
+# contra datos reales que nunca vio. A diferencia del accuracy() del paso 8
+# (que mide el ajuste del modelo final sobre sus propios datos de
+# entrenamiento), esta métrica sí refleja capacidad predictiva real.
+backtest_nnetar <- function(ts_serie, n_test = 52) {
+  tiempos <- time(ts_serie)
+  n <- length(ts_serie)
+
+  train <- window(ts_serie, end = tiempos[n - n_test])
+  test  <- window(ts_serie, start = tiempos[n - n_test + 1])
+
+  modelo <- nnetar(train)
+  pred <- forecast(modelo, h = length(test))
+
+  accuracy(pred, test)["Test set", c("MAE", "MAPE")]
+}
+
+backtest_neumonia <- backtest_nnetar(ts_neumonia)
+backtest_influenza <- backtest_nnetar(ts_influenza)
+
+cat("=== Validación out-of-sample (backtesting, último año como test) ===\n")
+cat("Neumonía  - MAE:", round(backtest_neumonia["MAE"], 2),
+    "| MAPE:", round(backtest_neumonia["MAPE"], 2), "%\n")
+cat("Influenza - MAE:", round(backtest_influenza["MAE"], 2),
+    "| MAPE:", round(backtest_influenza["MAPE"], 2), "%\n\n")
+
+# 6. Modelado con Redes Neuronales (modelo final, entrenado con todos los datos)
 modelo_nnet_neumonia <- nnetar(ts_neumonia)
 modelo_nnet_influenza <- nnetar(ts_influenza)
 
-# 6. Predicción para 20 semanas desde semana 14 de 2025
+# 7. Predicción para 20 semanas desde semana 14 de 2025
 pred_neumonia <- forecast(modelo_nnet_neumonia, h = 20)
 pred_influenza <- forecast(modelo_nnet_influenza, h = 20)
 
-# 7. Evaluación con MAPE y MAE
+# 8. Evaluación in-sample del modelo final (referencial, ver validación real en el paso 5)
 precision_neumonia_mape <- accuracy(pred_neumonia)[, "MAPE"]
 precision_influenza_mape <- accuracy(pred_influenza)[, "MAPE"]
 
 precision_neumonia_mae <- accuracy(pred_neumonia)[, "MAE"]
 precision_influenza_mae <- accuracy(pred_influenza)[, "MAE"]
 
+cat("=== Ajuste in-sample del modelo final (referencial) ===\n")
 cat("MAPE Neumonía:", round(precision_neumonia_mape, 2), "%\n")
 cat("MAE Neumonía:", round(precision_neumonia_mae, 2), "\n\n")
 
@@ -66,7 +99,7 @@ cat("MAE Influenza:", round(precision_influenza_mae, 2), "\n")
 
 
 
-# 8. Gráficos de predicción
+# 9. Gráficos de predicción
 
 # Configurar las dimensiones y márgenes del dispositivo gráfico
 par(mfrow = c(2, 1), mar = c(5, 4, 2, 1))  # mfrow: 2 filas, 1 columna; mar: márgenes (abajo, izquierda, arriba, derecha)
@@ -77,7 +110,7 @@ plot(pred_neumonia, main = "Predicción Neumonía - Modelo Red Neuronal", col.ma
 plot(pred_influenza, main = "Predicción Influenza - Modelo Red Neuronal", col.main = "red")
 
 
-#8.1
+#9.1
 
 # Configurar dimensiones del dispositivo gráfico
 par(mfrow = c(2, 1), mar = c(5, 4, 3, 1))  # Más margen superior para títulos largos
@@ -148,7 +181,7 @@ grafico_animado <- ggplot(casos_respiratorios,
 
   # Etiquetas en máximos
   geom_text(data = puntos_maximos,
-            aes(label = total_casos),
+            aes(label = scales::comma(round(total_casos))),
             vjust = -1.2, color = "white", size = 3.5, fontface = "bold", show.legend = FALSE) +
 
   scale_color_manual(values = colores_modernos) +
